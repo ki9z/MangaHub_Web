@@ -1,0 +1,246 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ comic.title }} - MangaHub{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'core/css/comic_detail.css' %}">
+<div class="comic-detail-container">
+    <!-- Breadcrumb -->
+    <div class="breadcrumb">
+        <a href="{% url 'home' %}">Trang chủ</a> &gt;
+        <a href="{% url 'comic_list' %}">Truyện tranh</a> &gt;
+        <span>{{ comic.title }}</span>
+    </div>
+
+    <!-- Main Comic Info -->
+    <div class="comic-detail-card">
+        <div class="comic-cover-section">
+            <div class="comic-cover">
+                {% if comic.cover_image %}
+                    <img src="{{ comic.cover_image.url }}" alt="{{ comic.title }}" class="cover-image">
+                {% else %}
+                    <div class="cover-placeholder">
+                        <span>{{ comic.title|slice:":2" }}</span>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="cover-actions">
+                {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'toggle_favorite' comic.id %}" class="favorite-form">
+                        {% csrf_token %}
+                        <button type="submit" class="favorite-btn {% if is_favorite %}favorited{% endif %}">
+                            <span class="heart-icon">❤</span>
+                            {% if is_favorite %}Bỏ yêu thích{% else %}Thêm yêu thích{% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+                
+                {% if comic.chapters.first %}
+                    <div class="read-actions">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'read_chapter' comic.chapters.first.id %}" class="btn read-btn primary">
+                                Đọc từ đầu
+                            </a>
+                        {% else %}
+                            <a href="{% url 'login_view' %}?next={% url 'read_chapter' comic.chapters.first.id %}" class="btn read-btn primary">
+                                Đọc từ đầu
+                            </a>
+                        {% endif %}
+                        
+                        {% if latest_read_chapter %}
+                            <a href="{% url 'read_chapter' latest_read_chapter.id %}" class="btn read-btn secondary">
+                                Đọc tiếp
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="comic-info-section">
+            <h1 class="comic-title">{{ comic.title }}</h1>
+            <p class="comic-author">Tác giả: {{ comic.author }}</p>
+            
+            <div class="comic-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Trạng thái:</span>
+                    <span class="stat-value status-{{ comic.status }}">
+                        {% if comic.status == 'ongoing' %}Đang tiến hành
+                        {% elif comic.status == 'completed' %}Đã hoàn thành
+                        {% elif comic.status == 'hiatus' %}Tạm ngưng
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Lượt xem:</span>
+                    <span class="stat-value">{{ comic.views|default:0 }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Lượt thích:</span>
+                    <span class="stat-value">{{ comic.favorite_count|default:0 }}</span>
+                </div>
+            </div>
+
+            <div class="comic-description">
+                <h3>Nội dung</h3>
+                <p>{{ comic.description|default:"Đang cập nhật..." }}</p>
+            </div>
+
+            {% if comic.tags.all %}
+            <div class="comic-tags">
+                <h3>Thể loại</h3>
+                <div class="tags-list">
+                    {% for tag in comic.tags.all %}
+                        <span class="tag">{{ tag.name }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Chapters Section -->
+    <div class="chapters-section">
+        <div class="section-header">
+            <h2>Danh sách chương</h2>
+            <div class="chapter-count">{{ chapters|length }} chương</div>
+        </div>
+
+        <div class="chapters-list">
+            {% for chapter in chapters %}
+                <div class="chapter-item {% if chapter.id == latest_read_chapter.id %}last-read{% endif %}">
+                    <div class="chapter-info">
+                        <a href="{% url 'read_chapter' chapter.id %}" class="chapter-link">
+                            <span class="chapter-number">Chương {{ chapter.chapter_number }}</span>
+                            {% if chapter.title %}
+                                <span class="chapter-title">: {{ chapter.title }}</span>
+                            {% endif %}
+                        </a>
+                        <div class="chapter-meta">
+                            <span class="upload-time">{{ chapter.created_at|date:"d/m/Y" }}</span>
+                            <span class="view-count">{{ chapter.views }} lượt xem</span>
+                        </div>
+                    </div>
+                    <div class="chapter-actions">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'read_chapter' chapter.id %}" class="btn read-chapter-btn">
+                                Đọc
+                            </a>
+                        {% else %}
+                            <a href="{% url 'login_view' %}?next={% url 'read_chapter' chapter.id %}" class="btn read-chapter-btn">
+                                Đọc
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="no-chapters">
+                    <p>Chưa có chương nào được đăng.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if chapters.has_other_pages %}
+        <div class="pagination">
+            {% if chapters.has_previous %}
+                <a href="?page={{ chapters.previous_page_number }}" class="page-link">← Trước</a>
+            {% endif %}
+
+            {% for num in chapters.paginator.page_range %}
+                {% if chapters.number == num %}
+                    <span class="page-link current">{{ num }}</span>
+                {% else %}
+                    <a href="?page={{ num }}" class="page-link">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if chapters.has_next %}
+                <a href="?page={{ chapters.next_page_number }}" class="page-link">Sau →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Related Comics -->
+    {% if related_comics %}
+    <div class="related-section">
+        <h2>Truyện liên quan</h2>
+        <div class="related-comics">
+            {% for related in related_comics %}
+                <div class="related-comic">
+                    <a href="{% url 'comic_detail' related.id %}">
+                        <div class="related-cover">
+                            {% if related.cover_image %}
+                                <img src="{{ related.cover_image.url }}" alt="{{ related.title }}">
+                            {% else %}
+                                <div class="cover-placeholder small">
+                                    <span>{{ related.title|slice:":2" }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <h4>{{ related.title }}</h4>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'core/js/comic_detail.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Xử lý nút yêu thích
+    const favoriteForms = document.querySelectorAll('.favorite-form');
+    favoriteForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
+            const button = form.querySelector('.favorite-btn');
+            
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new FormData(form)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'added') {
+                    button.classList.add('favorited');
+                    button.innerHTML = '<span class="heart-icon">❤</span> Bỏ yêu thích';
+                } else if (data.status === 'removed') {
+                    button.classList.remove('favorited');
+                    button.innerHTML = '<span class="heart-icon">❤</span> Thêm yêu thích';
+                }
+                
+                // Cập nhật số lượng yêu thích
+                const favoriteCount = document.querySelector('.comic-stats .stat-value:nth-child(3)');
+                if (favoriteCount && data.favorite_count !== undefined) {
+                    favoriteCount.textContent = data.favorite_count;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Fallback: submit form bình thường
+                form.submit();
+            });
+        });
+    });
+
+    // Đánh dấu chương đã đọc
+    const readButtons = document.querySelectorAll('.read-chapter-btn, .read-btn');
+    readButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Có thể thêm tracking ở đây
+            localStorage.setItem('lastReadChapter', this.href);
+        });
+    });
+});
+</script>
+{% endblock %}
